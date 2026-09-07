@@ -27,7 +27,10 @@ export async function POST(req: NextRequest) {
       hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London',
     });
 
-    const displayName = config.assistantDisplayName || 'Chatacus';
+    // Only ever invoked from chat/route.ts's non-chatacus-v1 branch —
+    // always a hand-configured client, so this restores its pre-Chatacus
+    // identity.
+    const displayName = config.assistantDisplayName || 'Vaughan';
     const body =
       `🏡 New ${displayName} lead\n` +
       `Name: ${name || 'Not provided'}\n` +
