@@ -84,7 +84,9 @@ export async function POST(req: NextRequest) {
   }
 
   const config = getClient(clientId);
-  const displayName = config.assistantDisplayName || 'Chatacus';
+  // This route has no Chatacus awareness and is only ever reached for
+  // hand-configured clients — restores their pre-Chatacus identity.
+  const displayName = config.assistantDisplayName || 'Vaughan';
 
   const { error } = await getResend().emails.send({
     from: `${displayName} <leads@notifications.vaughan.ai>`,

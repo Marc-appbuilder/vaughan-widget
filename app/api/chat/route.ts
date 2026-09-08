@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient } from '@/lib/clients';
 import { resolveClient } from '@/lib/chatacus/resolveClient';
+import { sendLeadWebhook } from '@/lib/chatacus/leadWebhook';
 import { Resend } from 'resend';
 import { supabase } from '@/lib/supabase';
 import type { LeadPayload } from '@/app/api/lead/route';
@@ -100,7 +101,10 @@ function buildHtml(lead: LeadPayload, clientName: string, brandColour: string, d
 
 async function sendLeadEmail(lead: LeadPayload, clientId: string) {
   const config = getClient(clientId);
-  const displayName = config.assistantDisplayName || 'Chatacus';
+  // Only ever called from the non-chatacus-v1 branch below (Chatacus
+  // clients use sendLeadWebhook instead) — always a hand-configured
+  // client, so this always restores its pre-Chatacus identity.
+  const displayName = config.assistantDisplayName || 'Vaughan';
   let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt++) {
     const { data, error } = await getResend().emails.send({
@@ -192,7 +196,10 @@ export async function POST(req: NextRequest) {
   } else if (language === 'bilingual') {
     languageInstruction = '\n\nYou support English and Welsh languages only. Detect whether the user is writing in English or Welsh and respond in the same language. If unsure, default to English.';
   }
-  const displayName = config.assistantDisplayName || 'Chatacus';
+  // Hand-configured clients (provisionedVia undefined) keep their original,
+  // pre-Chatacus identity; only a genuine Chatacus-provisioned client
+  // defaults to the platform name when it hasn't set its own.
+  const displayName = config.assistantDisplayName || (config.provisionedVia === 'chatacus-v1' ? 'Chatacus' : 'Vaughan');
   const brandRule = `\n\nBrand rule: you are ${displayName} — always introduce yourself as just "${displayName}", never as "${displayName} from [agency name]". The agency and ${displayName} are separate. If asked who you are, say "I'm ${displayName}" only.`;
   const systemPrompt = config.systemPrompt + brandRule + languageInstruction;
 
@@ -270,20 +277,26 @@ export async function POST(req: NextRequest) {
           }
           let waDebug = 'skipped (duplicate)';
           if (!isDuplicate) {
-            await sendLeadEmail(toolInput, clientId);
-            waDebug = await fetch(new URL('/api/whatsapp', req.url).toString(), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                clientId,
-                name:    toolInput.name,
-                phone:   toolInput.phone,
-                email:   toolInput.email,
-                summary: toolInput.summary,
-              }),
-            })
-              .then(async (r) => `status ${r.status}: ${await r.text()}`)
-              .catch((e) => `fetch threw: ${e instanceof Error ? e.message : String(e)}`);
+            if (config.provisionedVia === 'chatacus-v1') {
+              // Chatacus-provisioned client: notify Chatacus's own system
+              // instead of Vaughan's Resend/Twilio. Never both.
+              waDebug = await sendLeadWebhook(toolInput, clientId);
+            } else {
+              await sendLeadEmail(toolInput, clientId);
+              waDebug = await fetch(new URL('/api/whatsapp', req.url).toString(), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  clientId,
+                  name:    toolInput.name,
+                  phone:   toolInput.phone,
+                  email:   toolInput.email,
+                  summary: toolInput.summary,
+                }),
+              })
+                .then(async (r) => `status ${r.status}: ${await r.text()}`)
+                .catch((e) => `fetch threw: ${e instanceof Error ? e.message : String(e)}`);
+            }
           }
           supabase.from('leads').insert({
             agent_id:         clientId,
