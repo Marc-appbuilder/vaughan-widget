@@ -110,7 +110,9 @@
   document.head.appendChild(styleEl);
 
   /* ── 5. FAB wrapper ─────────────────────────────────────────────────────── */
-  var _pos = 'bottom-right'; // resolved from config
+  var _pos  = 'bottom-right'; // resolved from config
+  var _offX = 0; // px, admin-configured, layered on top of _pos; +x = right
+  var _offY = 0; // px, admin-configured, layered on top of _pos; +y = down
 
   var fabWrap = document.createElement('div');
   Object.assign(fabWrap.style, {
@@ -123,10 +125,13 @@
     transition: 'filter 0.4s ease',
   });
 
-  function applyFabPosition(pos) {
-    _pos = pos || 'bottom-right';
+  function applyFabPosition(pos, offX, offY) {
+    _pos  = pos || 'bottom-right';
+    _offX = Number(offX) || 0;
+    _offY = Number(offY) || 0;
 
-    /* On mobile always use bottom-right — admin positions are desktop-only */
+    /* On mobile always use bottom-right, with no offset — admin positions
+       and offsets are desktop-only */
     if (isMobile()) {
       Object.assign(fabWrap.style, {
         bottom: '24px', top: 'auto', right: '32px', left: 'auto',
@@ -138,16 +143,16 @@
     var isLeft    = _pos.indexOf('left')  !== -1;
     var isFloated = _pos === 'middle-left'  || _pos === 'middle-right' ||
                     _pos === 'lower-left'   || _pos === 'lower-right';
-    var topVal    = _pos === 'lower-left'   || _pos === 'lower-right' ? '72%' : '50%';
+    var topPct    = _pos === 'lower-left'   || _pos === 'lower-right' ? 72 : 50;
     var anim      = isFloated
       ? (isLeft ? 'ea-fab-eml' : 'ea-fab-emr')
       : (isLeft ? 'ea-fab-el'  : 'ea-fab-er');
 
     Object.assign(fabWrap.style, {
-      bottom: isFloated ? 'auto'  : '24px',
-      top:    isFloated ? topVal  : 'auto',
-      right:  isLeft    ? 'auto'  : '32px',
-      left:   isLeft    ? '24px'  : 'auto',
+      bottom: isFloated ? 'auto'  : (24 - _offY) + 'px',
+      top:    isFloated ? 'calc(' + topPct + '% + ' + _offY + 'px)' : 'auto',
+      right:  isLeft    ? 'auto'  : (32 - _offX) + 'px',
+      left:   isLeft    ? (24 + _offX) + 'px' : 'auto',
       animation: anim + ' 0.6s cubic-bezier(0.22,1,0.36,1) 2s both',
     });
 
@@ -906,12 +911,12 @@
       var isLeft    = _pos.indexOf('left') !== -1;
       var isFloated = _pos === 'middle-left' || _pos === 'middle-right' ||
                       _pos === 'lower-left'  || _pos === 'lower-right';
-      var topVal    = _pos === 'lower-left' || _pos === 'lower-right'
-        ? 'calc(72% - 290px)' : 'calc(50% - 290px)';
+      var topPct    = _pos === 'lower-left' || _pos === 'lower-right' ? 72 : 50;
+      var topVal    = 'calc(' + topPct + '% - 290px + ' + _offY + 'px)';
       Object.assign(container.style, {
-        right:     isLeft    ? 'auto'  : '32px',
-        left:      isLeft    ? '96px'  : 'auto',
-        bottom:    isFloated ? 'auto'  : (_isClassic ? '112px' : '112px'),
+        right:     isLeft    ? 'auto'  : (32 - _offX) + 'px',
+        left:      isLeft    ? (96 + _offX) + 'px' : 'auto',
+        bottom:    isFloated ? 'auto'  : (112 - _offY) + 'px',
         top:       isFloated ? topVal  : 'auto',
         width:     '380px',
         height:    '580px',
@@ -1213,7 +1218,7 @@
         _isClassic    = _widgetStyle === 'classic';
         _brandColour  = d.brandColour || '';
         if (_isClassic) buildClassicFab(d.logoUrl || '', d.brandColour || '', d.logoPulse || false, d.logoGlowColour || '', d.logoPadding || 0, d.logoPulseGlow !== false);
-        applyFabPosition(d.widgetPosition || 'bottom-right');
+        applyFabPosition(d.widgetPosition || 'bottom-right', d.widgetOffsetX, d.widgetOffsetY);
         applyMobileScale();
         applyColor();
         initTeaser(d.teaserText || teaserArg || null, d.teaserPersist, d.teaserOnce || false, d.teaserFade || false, d.teaserPauseMs || 4500, d.teaserGapMs || 4000, d.teaserFont || null, d.teaserBg || null);

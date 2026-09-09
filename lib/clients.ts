@@ -7,6 +7,8 @@ export interface ClientConfig {
   brandColour: string;
   teaserText?: string;
   widgetPosition?: string; // 'bottom-right' | 'bottom-left' | 'middle-right' | 'middle-left'
+  widgetOffsetX?: number;  // px, layered on top of widgetPosition; +x = right, 0 = no change
+  widgetOffsetY?: number;  // px, layered on top of widgetPosition; +y = down, 0 = no change
   widgetStyle?: string;    // 'classic' | 'v2'
   widgetTheme?: string;    // 'dark' | 'light'
   teaserPersist?: boolean; // desktop: keep teaser bubble permanently visible
